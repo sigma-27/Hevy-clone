@@ -21,7 +21,8 @@ struct ActiveWorkoutView: View {
                         RestTimerView(
                             remaining: appState.restTimerRemaining,
                             total: appState.restTimerTotal,
-                            onSkip: { appState.stopRestTimer() }
+                            onSkip: { appState.stopRestTimer() },
+                            onAddTime: { appState.addRestTime($0) }
                         )
                         .padding(.horizontal)
                         .padding(.top, 8)
@@ -76,7 +77,10 @@ struct ActiveWorkoutView: View {
                 Text("You've completed \(workout.completedSetsCount) sets.")
             }
         }
-        .onAppear { startTimer() }
+        .onAppear {
+            startTimer()
+            RestTimerService.requestPermission()
+        }
         .onDisappear { timer?.invalidate() }
     }
 

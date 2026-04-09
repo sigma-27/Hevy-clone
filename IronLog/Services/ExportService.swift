@@ -107,4 +107,97 @@ struct ExportService {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(pkg)
     }
+
+    // MARK: - Import
+
+    static func importJSON(_ data: Data, into modelContainer: ModelContainer) async throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let pkg = try decoder.decode(ExportPackage.self, from: data)
+
+        let context = ModelContext(modelContainer)
+
+        // Delete existing completed workouts, routines, body weight entries
+        let existingWorkouts = try context.fetch(FetchDescriptor<Workout>())
+        existingWorkouts.forEach { context.delete($0) }
+        let existingRoutines = try context.fetch(FetchDescriptor<Routine>())
+        existingRoutines.forEach { context.delete($0) }
+        let existingBW = try context.fetch(FetchDescriptor<BodyWeightEntry>())
+        existingBW.forEach { context.delete($0) }
+        try context.save()
+
+        // Build exercise lookup by name (case-insensitive)
+        let allExercises = try context.fetch(FetchDescriptor<Exercise>())
+        let exerciseByName = Dictionary(uniqueKeysWithValues: allExercises.map { ($0.name.lowercased(), $0) })
+
+        // Import workouts
+        for wDTO in pkg.workouts {
+            let workout = Workout(
+                id: UUID(uuidString: wDTO.id) ?? UUID(),
+                title: wDTO.title,
+                startTime: wDTO.startTime,
+                endTime: wDTO.endTime,
+                notes: wDTO.notes,
+                isInProgress: false
+            )
+            for (i, weDTO) in wDTO.exercises.enumerated() {
+                let we = WorkoutExercise(
+                    id: UUID(uuidString: weDTO.id) ?? UUID(),
+                    exerciseOrder: weDTO.exerciseOrder == 0 && i > 0 ? i : weDTO.exerciseOrder,
+                    notes: weDTO.notes,
+                    supersetGroup: weDTO.supersetGroup
+                )
+                we.exercise = exerciseByName[weDTO.exerciseName.lowercased()]
+                we.workout = workout
+                for sDTO in weDTO.sets {
+                    let set = WorkoutSet(
+                        setNumber: sDTO.setNumber,
+                        weightKg: sDTO.weightKg,
+                        reps: sDTO.reps,
+                        rpe: sDTO.rpe,
+                        isCompleted: sDTO.isCompleted,
+                        setType: sDTO.setType
+                    )
+                    set.workoutExercise = we
+                    we.sets.append(set)
+                    context.insert(set)
+                }
+                workout.exercises.append(we)
+                context.insert(we)
+            }
+            context.insert(workout)
+        }
+
+        // Import routines
+        for rDTO in pkg.routines {
+            let routine = Routine(
+                id: UUID(uuidString: rDTO.id) ?? UUID(),
+                name: rDTO.name,
+                notes: rDTO.notes,
+                scheduledDays: rDTO.scheduledDays
+            )
+            for reDTO in rDTO.exercises {
+                let re = RoutineExercise(
+                    exerciseOrder: reDTO.exerciseOrder,
+                    targetSets: reDTO.targetSets,
+                    targetReps: reDTO.targetReps,
+                    targetWeightKg: reDTO.targetWeightKg,
+                    autoProgressEnabled: reDTO.autoProgressEnabled,
+                    autoProgressWeightKg: reDTO.autoProgressWeightKg
+                )
+                re.exercise = exerciseByName[reDTO.exerciseName.lowercased()]
+                re.routine = routine
+                routine.exercises.append(re)
+                context.insert(re)
+            }
+            context.insert(routine)
+        }
+
+        // Import body weight
+        for bwDTO in pkg.bodyWeightEntries {
+            context.insert(BodyWeightEntry(weightKg: bwDTO.weightKg, date: bwDTO.date, notes: bwDTO.notes))
+        }
+
+        try context.save()
+    }
 }

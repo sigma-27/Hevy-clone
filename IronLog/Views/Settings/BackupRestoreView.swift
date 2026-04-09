@@ -3,6 +3,7 @@ import SwiftData
 
 struct BackupRestoreView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContainer) private var modelContainer
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var exportURL: URL?
@@ -73,7 +74,7 @@ struct BackupRestoreView: View {
         isExporting = true
         Task {
             do {
-                let data = try await ExportService.exportJSON(modelContainer: modelContext.container)
+                let data = try await ExportService.exportJSON(modelContainer: modelContainer)
                 let url = FileManager.default.temporaryDirectory
                     .appendingPathComponent("IronLog_backup_\(Date().formatted(.iso8601)).json")
                 try data.write(to: url)
@@ -96,7 +97,7 @@ struct BackupRestoreView: View {
         Task {
             do {
                 let data = try Data(contentsOf: url)
-                try await ExportService.importJSON(data, into: modelContext.container)
+                try await ExportService.importJSON(data, into: modelContainer)
                 await MainActor.run {
                     statusMessage = "Data imported successfully."
                     showingStatus = true
