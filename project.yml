@@ -18,8 +18,7 @@ targets:
       path: IronLog/Info.plist
       properties:
         CFBundleDisplayName: IronLog
-        UILaunchScreen:
-          UIColorName: ""
+        UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         NSPhotoLibraryUsageDescription: "IronLog uses your photo library for progress photos."

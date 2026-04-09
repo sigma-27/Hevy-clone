@@ -5,10 +5,12 @@ struct ActiveWorkoutView: View {
     @Bindable var workout: Workout
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingExercisePicker = false
     @State private var showingFinishConfirm = false
     @State private var showingComplete = false
     @State private var showingNotes = false
+    @State private var isReordering = false
     @State private var elapsedSeconds = 0
     @State private var timer: Timer?
 
@@ -31,24 +33,30 @@ struct ActiveWorkoutView: View {
                     // Inline workout notes
                     workoutNotesField
 
-                    // Exercise list
-                    LazyVStack(spacing: 16) {
-                        ForEach(workout.exercises.sorted { $0.exerciseOrder < $1.exerciseOrder }) { we in
-                            ExerciseInWorkoutView(workoutExercise: we)
+                    if isReordering {
+                        reorderList
+                    } else {
+                        // Exercise cards
+                        LazyVStack(spacing: 16) {
+                            ForEach(sortedExercises) { we in
+                                ExerciseInWorkoutView(workoutExercise: we)
+                            }
                         }
+                        .padding()
                     }
-                    .padding()
 
-                    // Add exercise button
-                    Button { showingExercisePicker = true } label: {
-                        Label("Add Exercise", systemImage: "plus")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    // Add exercise button (hidden while reordering)
+                    if !isReordering {
+                        Button { showingExercisePicker = true } label: {
+                            Label("Add Exercise", systemImage: "plus")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 40)
                 }
             }
             .navigationTitle(workout.title)
@@ -61,14 +69,29 @@ struct ActiveWorkoutView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
-                        Button {
-                            withAnimation { showingNotes.toggle() }
-                        } label: {
-                            Image(systemName: workout.notes.isEmpty ? "note.text" : "note.text.badge.plus")
-                                .foregroundStyle(workout.notes.isEmpty ? .secondary : .accentColor)
+                        if !isReordering {
+                            Button {
+                                withAnimation { showingNotes.toggle() }
+                            } label: {
+                                Image(systemName: workout.notes.isEmpty ? "note.text" : "note.text.badge.plus")
+                                    .foregroundStyle(workout.notes.isEmpty ? .secondary : .accentColor)
+                            }
                         }
-                        Button("Finish") { showingFinishConfirm = true }
-                            .fontWeight(.semibold)
+
+                        // Reorder button — only when there are 2+ exercises
+                        if sortedExercises.count > 1 {
+                            Button {
+                                withAnimation { isReordering.toggle() }
+                            } label: {
+                                Image(systemName: isReordering ? "checkmark.circle.fill" : "arrow.up.arrow.down")
+                                    .foregroundStyle(isReordering ? .green : .secondary)
+                            }
+                        }
+
+                        if !isReordering {
+                            Button("Finish") { showingFinishConfirm = true }
+                                .fontWeight(.semibold)
+                        }
                     }
                 }
             }
@@ -98,6 +121,58 @@ struct ActiveWorkoutView: View {
             RestTimerService.requestPermission()
         }
         .onDisappear { timer?.invalidate() }
+        .onChange(of: scenePhase) { _, phase in
+            // Re-sync elapsed time whenever the app returns to the foreground
+            // (handles lock screen, app switching, background fetch wakeups)
+            if phase == .active {
+                elapsedSeconds = Int(Date().timeIntervalSince(workout.startTime))
+            }
+        }
+    }
+
+    // MARK: - Sorted exercises
+
+    private var sortedExercises: [WorkoutExercise] {
+        workout.exercises.sorted { $0.exerciseOrder < $1.exerciseOrder }
+    }
+
+    // MARK: - Reorder list
+
+    private var reorderList: some View {
+        List {
+            Section {
+                ForEach(sortedExercises) { we in
+                    HStack(spacing: 12) {
+                        Image(systemName: "line.3.horizontal")
+                            .foregroundStyle(.tertiary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(we.exercise?.name ?? "Exercise")
+                                .font(.subheadline).fontWeight(.semibold)
+                            Text("\(we.sets.count) set\(we.sets.count == 1 ? "" : "s")")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if let sg = we.supersetGroup {
+                            Text("SS\(sg)").font(.caption2).bold()
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.2))
+                                .foregroundStyle(.orange)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onMove { indices, destination in
+                    reorderExercises(from: indices, to: destination)
+                }
+            } header: {
+                Text("Drag to reorder")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .environment(\.editMode, .constant(.active))
+        .frame(minHeight: CGFloat(sortedExercises.count) * 68 + 80)
     }
 
     // MARK: - Inline notes
@@ -119,7 +194,6 @@ struct ActiveWorkoutView: View {
             .padding(.top, 10)
             .transition(.move(edge: .top).combined(with: .opacity))
         } else if !workout.notes.isEmpty {
-            // Collapsed preview when notes exist
             Button {
                 withAnimation { showingNotes = true }
             } label: {
@@ -163,6 +237,14 @@ struct ActiveWorkoutView: View {
         modelContext.insert(we)
         modelContext.insert(set)
         workout.exercises.append(we)
+    }
+
+    private func reorderExercises(from indices: IndexSet, to destination: Int) {
+        var exercises = sortedExercises
+        exercises.move(fromOffsets: indices, toOffset: destination)
+        for (i, we) in exercises.enumerated() {
+            we.exerciseOrder = i
+        }
     }
 
     private func finishWorkout() {
