@@ -98,6 +98,15 @@ struct ExerciseDetailView: View {
         }
         .navigationTitle(exercise.name)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if !history.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: ExerciseStatsView(exercise: exercise)) {
+                        Label("Statistics", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                }
+            }
+        }
     }
 }
 

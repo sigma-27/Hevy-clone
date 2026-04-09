@@ -7,16 +7,30 @@ struct DashboardView: View {
     @Query(sort: \Workout.startTime, order: .reverse) private var workouts: [Workout]
     @Query private var routines: [Routine]
 
+    private var completedWorkouts: [Workout] { workouts.filter { !$0.isInProgress } }
+
+    private var todaysRoutines: [Routine] {
+        // Calendar.weekday: 1=Sun … 7=Sat  →  scheduledDays: 0=Sun … 6=Sat
+        let weekday = Calendar.current.component(.weekday, from: Date()) - 1
+        return routines.filter { $0.scheduledDays.contains(weekday) }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Quick start card
                     quickStartCard
+
+                    // Today's scheduled routines
+                    if !todaysRoutines.isEmpty {
+                        todaysPlanSection
+                    }
+
                     // Recent workouts
-                    if !workouts.filter({ !$0.isInProgress }).isEmpty {
+                    if !completedWorkouts.isEmpty {
                         recentWorkoutsSection
-                    } else {
+                    } else if todaysRoutines.isEmpty {
                         EmptyStateView(
                             title: "No workouts yet",
                             message: "Start your first workout to see it here",
@@ -32,14 +46,14 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - Quick start
+
     private var quickStartCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Ready to train?")
                 .font(.headline)
             Button {
-                let workout = Workout(title: "Workout \(Date().formatted(date: .abbreviated, time: .omitted))")
-                modelContext.insert(workout)
-                appState.startWorkout(workout)
+                startEmptyWorkout()
             } label: {
                 Label("Start Empty Workout", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)
@@ -54,11 +68,50 @@ struct DashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    // MARK: - Today's plan
+
+    private var todaysPlanSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Today's Plan", systemImage: "calendar")
+                .font(.headline)
+            ForEach(todaysRoutines) { routine in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(routine.name)
+                            .font(.subheadline).fontWeight(.semibold)
+                        Text("\(routine.exercises.count) exercise\(routine.exercises.count == 1 ? "" : "s")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        startRoutineWorkout(routine)
+                    } label: {
+                        Text("Start")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(Color.accentColor)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    // MARK: - Recent workouts
+
     private var recentWorkoutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Workouts")
                 .font(.headline)
-            ForEach(workouts.filter { !$0.isInProgress }.prefix(5)) { workout in
+            ForEach(completedWorkouts.prefix(5)) { workout in
                 NavigationLink(destination: WorkoutDetailView(workout: workout)) {
                     WorkoutRowView(workout: workout)
                 }
@@ -66,7 +119,36 @@ struct DashboardView: View {
             }
         }
     }
+
+    // MARK: - Actions
+
+    private func startEmptyWorkout() {
+        let workout = Workout(title: "Workout \(Date().formatted(date: .abbreviated, time: .omitted))")
+        modelContext.insert(workout)
+        appState.startWorkout(workout)
+    }
+
+    private func startRoutineWorkout(_ routine: Routine) {
+        let workout = Workout(title: routine.name)
+        for (i, re) in routine.sortedExercises.enumerated() {
+            let we = WorkoutExercise(exerciseOrder: i, supersetGroup: re.supersetGroup)
+            we.exercise = re.exercise
+            we.workout = workout
+            for j in 0..<re.targetSets {
+                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg)
+                we.sets.append(set)
+                modelContext.insert(set)
+            }
+            workout.exercises.append(we)
+            modelContext.insert(we)
+        }
+        routine.lastUsed = Date()
+        modelContext.insert(workout)
+        appState.startWorkout(workout)
+    }
 }
+
+// MARK: - Workout row
 
 private struct WorkoutRowView: View {
     var workout: Workout
