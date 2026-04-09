@@ -5,10 +5,10 @@ struct ActiveWorkoutView: View {
     @Bindable var workout: Workout
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
-    @Query private var allExercises: [Exercise]
     @State private var showingExercisePicker = false
     @State private var showingFinishConfirm = false
     @State private var showingComplete = false
+    @State private var showingNotes = false
     @State private var elapsedSeconds = 0
     @State private var timer: Timer?
 
@@ -28,8 +28,11 @@ struct ActiveWorkoutView: View {
                         .padding(.top, 8)
                     }
 
+                    // Inline workout notes
+                    workoutNotesField
+
                     // Exercise list
-                    LazyVStack(spacing: 16, pinnedViews: []) {
+                    LazyVStack(spacing: 16) {
                         ForEach(workout.exercises.sorted { $0.exerciseOrder < $1.exerciseOrder }) { we in
                             ExerciseInWorkoutView(workoutExercise: we)
                         }
@@ -37,9 +40,7 @@ struct ActiveWorkoutView: View {
                     .padding()
 
                     // Add exercise button
-                    Button {
-                        showingExercisePicker = true
-                    } label: {
+                    Button { showingExercisePicker = true } label: {
                         Label("Add Exercise", systemImage: "plus")
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -47,7 +48,7 @@ struct ActiveWorkoutView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 40)
                 }
             }
             .navigationTitle(workout.title)
@@ -59,8 +60,16 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(.secondary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Finish") { showingFinishConfirm = true }
-                        .fontWeight(.semibold)
+                    HStack(spacing: 12) {
+                        Button {
+                            withAnimation { showingNotes.toggle() }
+                        } label: {
+                            Image(systemName: workout.notes.isEmpty ? "note.text" : "note.text.badge.plus")
+                                .foregroundStyle(workout.notes.isEmpty ? .secondary : .accentColor)
+                        }
+                        Button("Finish") { showingFinishConfirm = true }
+                            .fontWeight(.semibold)
+                    }
                 }
             }
             .sheet(isPresented: $showingExercisePicker) {
@@ -77,7 +86,7 @@ struct ActiveWorkoutView: View {
                 .presentationDetents([.medium, .large])
             }
             .confirmationDialog("Finish Workout?", isPresented: $showingFinishConfirm, titleVisibility: .visible) {
-                Button("Finish Workout", role: .none) { finishWorkout() }
+                Button("Finish Workout") { finishWorkout() }
                 Button("Cancel Workout", role: .destructive) { cancelWorkout() }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -90,6 +99,47 @@ struct ActiveWorkoutView: View {
         }
         .onDisappear { timer?.invalidate() }
     }
+
+    // MARK: - Inline notes
+
+    @ViewBuilder
+    private var workoutNotesField: some View {
+        if showingNotes {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Workout Notes", systemImage: "note.text")
+                    .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
+                TextField("How's today's session going?", text: $workout.notes, axis: .vertical)
+                    .font(.subheadline)
+                    .lineLimit(3...8)
+                    .padding(10)
+                    .background(Color(.tertiarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .padding(.horizontal)
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        } else if !workout.notes.isEmpty {
+            // Collapsed preview when notes exist
+            Button {
+                withAnimation { showingNotes = true }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "note.text").font(.caption)
+                    Text(workout.notes)
+                        .font(.caption)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.down").font(.caption2)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Helpers
 
     private var elapsedString: String {
         let m = elapsedSeconds / 60
@@ -123,7 +173,6 @@ struct ActiveWorkoutView: View {
         showingComplete = true
     }
 
-    /// If this workout matches a routine (by title), apply auto-progression to matching exercises.
     private func applyAutoProgression() {
         let descriptor = FetchDescriptor<Routine>(
             predicate: #Predicate<Routine> { $0.name == workout.title }
@@ -132,20 +181,16 @@ struct ActiveWorkoutView: View {
               let routine = routines.first else { return }
 
         for we in workout.exercises {
-            guard let exerciseID = we.exercise?.id else { continue }
-            guard let re = routine.exercises.first(where: { $0.exercise?.id == exerciseID }),
+            guard let exerciseID = we.exercise?.id,
+                  let re = routine.exercises.first(where: { $0.exercise?.id == exerciseID }),
                   re.autoProgressEnabled else { continue }
-
-            // Parse target reps range e.g. "8-12" or "5"
-            let parts = re.targetReps.components(separatedBy: "-").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            let parts = re.targetReps.components(separatedBy: "-")
+                .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
             let targetRepsTop = parts.last ?? 0
             guard targetRepsTop > 0 else { continue }
-
-            // Check if all completed sets hit the top of the rep range
             let completedSets = we.sortedSets.filter { $0.isCompleted }
             let allHitTarget = !completedSets.isEmpty &&
                 completedSets.allSatisfy { ($0.reps ?? 0) >= targetRepsTop }
-
             if allHitTarget {
                 re.targetWeightKg = (re.targetWeightKg ?? 0) + re.autoProgressWeightKg
             }
