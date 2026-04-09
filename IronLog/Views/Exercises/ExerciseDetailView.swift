@@ -20,9 +20,15 @@ struct ExerciseDetailView: View {
 
     var body: some View {
         List {
-            // Muscle groups
-            Section("Muscles") {
-                VStack(alignment: .leading, spacing: 8) {
+            // Muscle diagram
+            if !exercise.primaryMuscles.isEmpty || !exercise.secondaryMuscles.isEmpty {
+                Section("Muscles") {
+                    MuscleDiagramView(
+                        primaryMuscles: exercise.primaryMuscles,
+                        secondaryMuscles: exercise.secondaryMuscles
+                    )
+                    .padding(.vertical, 8)
+
                     if !exercise.primaryMuscles.isEmpty {
                         HStack(alignment: .top) {
                             Text("Primary").font(.caption).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
@@ -44,7 +50,6 @@ struct ExerciseDetailView: View {
                         }
                     }
                 }
-                .padding(.vertical, 4)
             }
 
             // Equipment

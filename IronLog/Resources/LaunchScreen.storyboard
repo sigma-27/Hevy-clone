@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0"
+          toolsVersion="21507" targetRuntime="AppleCocoa Touch" propertyAccessControl="none"
+          useAutolayout="YES" launchScreen="YES" useTraitCollections="YES"
+          useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21507"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <!-- Background view -->
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="BG-vw-001">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                                <color key="backgroundColor" red="0.0784" green="0.0784" blue="0.102" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </view>
+                            <!-- App name label -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left"
+                                   horizontalHuggingPriority="251" verticalHuggingPriority="251"
+                                   text="IRONLOG"
+                                   translatesAutoresizingMaskIntoConstraints="NO" id="LBL-nm-001">
+                                <rect key="frame" x="136" y="404" width="120" height="44"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="32"/>
+                                <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <!-- Tagline label -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left"
+                                   horizontalHuggingPriority="251" verticalHuggingPriority="251"
+                                   text="Track. Progress. Dominate."
+                                   translatesAutoresizingMaskIntoConstraints="NO" id="LBL-tg-001">
+                                <rect key="frame" x="90" y="456" width="213" height="20"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                                <color key="textColor" red="1" green="0.4" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeAreaLayoutGuide" id="Bcu-3y-fUS"/>
+                        <color key="backgroundColor" red="0.0784" green="0.0784" blue="0.102" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <!-- BG fills safe view -->
+                            <constraint firstItem="BG-vw-001" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="c1"/>
+                            <constraint firstItem="BG-vw-001" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="c2"/>
+                            <constraint firstItem="BG-vw-001" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="c3"/>
+                            <constraint firstItem="BG-vw-001" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="c4"/>
+                            <!-- App name centered -->
+                            <constraint firstItem="LBL-nm-001" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="c5"/>
+                            <constraint firstItem="LBL-nm-001" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-20" id="c6"/>
+                            <!-- Tagline below name -->
+                            <constraint firstItem="LBL-tg-001" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="c7"/>
+                            <constraint firstItem="LBL-tg-001" firstAttribute="top" secondItem="LBL-nm-001" secondAttribute="bottom" constant="8" id="c8"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+</document>

@@ -58,11 +58,16 @@ struct SettingsView: View {
 
             Section("About") {
                 HStack {
-                    Text("Version")
-                    Spacer()
-                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                        .foregroundStyle(.secondary)
+                    AppIconView(size: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 13))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("IronLog").fontWeight(.semibold)
+                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 6)
                 }
+                .padding(.vertical, 4)
             }
         }
         .navigationTitle("Settings")

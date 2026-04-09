@@ -8,6 +8,7 @@ struct ExerciseInWorkoutView: View {
     @Query private var settings: [UserSettings]
     @Query(sort: \Workout.startTime, order: .reverse) private var allWorkouts: [Workout]
     @State private var showingNotes = false
+    @State private var showingSupersetPicker = false
 
     private var useKg: Bool { settings.first?.useKilograms ?? true }
     private var restSeconds: TimeInterval { Double(settings.first?.restTimerDefaultSeconds ?? 90) }
@@ -28,14 +29,37 @@ struct ExerciseInWorkoutView: View {
         return []
     }
 
+    /// Other exercises in the same workout available for superset linking
+    private var otherExercises: [WorkoutExercise] {
+        workoutExercise.workout?.exercises
+            .filter { $0.id != workoutExercise.id }
+            .sorted { $0.exerciseOrder < $1.exerciseOrder }
+            ?? []
+    }
+
+    private static let supersetColors: [Color] = [.orange, .purple, .teal, .pink, .indigo]
+    private var supersetColor: Color {
+        guard let g = workoutExercise.supersetGroup else { return .orange }
+        return Self.supersetColors[(g - 1) % Self.supersetColors.count]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Superset accent bar
+            if workoutExercise.supersetGroup != nil {
+                supersetColor
+                    .frame(height: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+            }
+
             // Header row
             HStack {
                 if let sg = workoutExercise.supersetGroup {
                     Text("SS\(sg)").font(.caption2).bold()
                         .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.2)).foregroundStyle(.orange)
+                        .background(supersetColor.opacity(0.2)).foregroundStyle(supersetColor)
                         .clipShape(Capsule())
                 }
                 NavigationLink(destination: ExerciseDetailView(exercise: workoutExercise.exercise!)) {
@@ -48,6 +72,17 @@ struct ExerciseInWorkoutView: View {
                 Spacer()
                 Menu {
                     Button { showingNotes.toggle() } label: { Label("Notes", systemImage: "note.text") }
+
+                    if workoutExercise.supersetGroup == nil {
+                        Button { showingSupersetPicker = true } label: {
+                            Label("Link as Superset", systemImage: "link")
+                        }
+                    } else {
+                        Button { unlinkSuperset() } label: {
+                            Label("Remove from Superset", systemImage: "link.badge.minus")
+                        }
+                    }
+
                     Button(role: .destructive) { deleteExercise() } label: {
                         Label("Remove", systemImage: "trash")
                     }
@@ -103,6 +138,82 @@ struct ExerciseInWorkoutView: View {
         }
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(
+                    workoutExercise.supersetGroup != nil ? supersetColor.opacity(0.4) : .clear,
+                    lineWidth: 1.5
+                )
+        )
+        .sheet(isPresented: $showingSupersetPicker) {
+            supersetPickerSheet
+        }
+    }
+
+    // MARK: - Superset Picker Sheet
+
+    private var supersetPickerSheet: some View {
+        NavigationStack {
+            List {
+                if otherExercises.isEmpty {
+                    ContentUnavailableView(
+                        "No Other Exercises",
+                        systemImage: "link",
+                        description: Text("Add more exercises to link as a superset.")
+                    )
+                } else {
+                    Section("Choose exercise to pair with") {
+                        ForEach(otherExercises) { other in
+                            Button {
+                                linkSuperset(with: other)
+                                showingSupersetPicker = false
+                            } label: {
+                                HStack {
+                                    if let sg = other.supersetGroup {
+                                        Text("SS\(sg)").font(.caption2).bold()
+                                            .padding(.horizontal, 5).padding(.vertical, 2)
+                                            .background(Color.orange.opacity(0.2))
+                                            .foregroundStyle(.orange)
+                                            .clipShape(Capsule())
+                                    }
+                                    Text(other.exercise?.name ?? "Exercise")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "link").foregroundStyle(.accentColor).font(.caption)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Link as Superset")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showingSupersetPicker = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    // MARK: - Actions
+
+    private func linkSuperset(with other: WorkoutExercise) {
+        let existing = workoutExercise.supersetGroup ?? other.supersetGroup
+        if let group = existing {
+            workoutExercise.supersetGroup = group
+            other.supersetGroup = group
+        } else {
+            let used = workoutExercise.workout?.exercises.compactMap(\.supersetGroup) ?? []
+            let next = (used.max() ?? 0) + 1
+            workoutExercise.supersetGroup = next
+            other.supersetGroup = next
+        }
+    }
+
+    private func unlinkSuperset() {
+        workoutExercise.supersetGroup = nil
     }
 
     private func addSet() {
