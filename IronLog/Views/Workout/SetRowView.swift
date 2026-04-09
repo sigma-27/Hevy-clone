@@ -5,6 +5,9 @@ struct SetRowView: View {
     @Bindable var set: WorkoutSet
     var setIndex: Int = 0
     var useKg: Bool = true
+    var previousWeightKg: Double? = nil
+    var previousReps: Int? = nil
+    var showRPE: Bool = true
     var onCompleted: () -> Void = {}
 
     @State private var weightString = ""
@@ -12,10 +15,10 @@ struct SetRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Set number badge
+            // Set type badge
             setTypeBadge.frame(width: 44)
 
-            // Previous
+            // Previous performance
             previousText.frame(maxWidth: .infinity)
 
             // Weight input
@@ -24,7 +27,7 @@ struct SetRowView: View {
                 .multilineTextAlignment(.center)
                 .frame(width: 70)
                 .onChange(of: weightString) { _, new in
-                    if let v = Double(new) {
+                    if let v = Double(new.replacingOccurrences(of: ",", with: ".")) {
                         set.weightKg = useKg ? v : v * 0.453592
                     } else if new.isEmpty {
                         set.weightKg = nil
@@ -35,10 +38,16 @@ struct SetRowView: View {
             TextField("0", text: $repsString)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
-                .frame(width: 60)
+                .frame(width: 56)
                 .onChange(of: repsString) { _, new in
                     set.reps = Int(new)
                 }
+
+            // RPE (optional)
+            if showRPE {
+                RPEPicker(rpe: $set.rpe)
+                    .frame(width: 36)
+            }
 
             // Complete checkbox
             Button { toggleComplete() } label: {
@@ -48,23 +57,37 @@ struct SetRowView: View {
             }
             .frame(width: 44)
         }
-        .padding(.vertical, 6).padding(.horizontal, 8)
+        .padding(.vertical, 8).padding(.horizontal, 8)
         .background(set.isCompleted ? Color.green.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: set.isCompleted)
         .onAppear { syncDisplayValues() }
     }
 
+    // MARK: - Sub-views
+
     private var setTypeBadge: some View {
-        Group {
+        Menu {
+            Button("Normal") { set.setType = "normal" }
+            Button("Warm-up") { set.setType = "warmup" }
+            Button("Drop Set") { set.setType = "dropset" }
+            Button("To Failure") { set.setType = "failure" }
+        } label: {
             switch set.setType {
             case "warmup":
-                Text("W").font(.caption).bold().foregroundStyle(.orange)
+                Text("W").font(.caption2).bold().foregroundStyle(.orange)
+                    .frame(width: 26, height: 26)
+                    .background(Color.orange.opacity(0.15)).clipShape(Circle())
             case "dropset":
-                Text("D").font(.caption).bold().foregroundStyle(.purple)
+                Text("D").font(.caption2).bold().foregroundStyle(.purple)
+                    .frame(width: 26, height: 26)
+                    .background(Color.purple.opacity(0.15)).clipShape(Circle())
             case "failure":
-                Text("F").font(.caption).bold().foregroundStyle(.red)
+                Text("F").font(.caption2).bold().foregroundStyle(.red)
+                    .frame(width: 26, height: 26)
+                    .background(Color.red.opacity(0.15)).clipShape(Circle())
             default:
-                Text("\(set.setNumber)").font(.subheadline).foregroundStyle(.secondary)
+                Text("\(set.setNumber)").font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -76,11 +99,21 @@ struct SetRowView: View {
             .lineLimit(1)
     }
 
-    private var previousLabel: String { "—" }
+    private var previousLabel: String {
+        guard let w = previousWeightKg, let r = previousReps else { return "—" }
+        let display = useKg ? w : w * 2.20462
+        let wStr = display.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(display))" : String(format: "%.1f", display)
+        return "\(wStr) × \(r)"
+    }
+
+    // MARK: - Actions
 
     private func toggleComplete() {
         set.isCompleted.toggle()
-        if set.isCompleted { onCompleted() }
+        if set.isCompleted {
+            onCompleted()
+        }
         syncDisplayValues()
     }
 
