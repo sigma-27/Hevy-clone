@@ -12,6 +12,9 @@ struct SetRowView: View {
 
     @State private var weightString = ""
     @State private var repsString = ""
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case weight, reps }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -26,6 +29,7 @@ struct SetRowView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
                 .frame(width: 70)
+                .focused($focusedField, equals: .weight)
                 .onChange(of: weightString) { _, new in
                     if let v = Double(new.replacingOccurrences(of: ",", with: ".")) {
                         set.weightKg = useKg ? v : v * 0.453592
@@ -39,6 +43,7 @@ struct SetRowView: View {
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
                 .frame(width: 56)
+                .focused($focusedField, equals: .reps)
                 .onChange(of: repsString) { _, new in
                     set.reps = Int(new)
                 }
@@ -61,6 +66,13 @@ struct SetRowView: View {
         .background(set.isCompleted ? Color.green.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: set.isCompleted)
         .onAppear { syncDisplayValues() }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+                    .fontWeight(.semibold)
+            }
+        }
     }
 
     // MARK: - Sub-views
@@ -112,6 +124,7 @@ struct SetRowView: View {
     private func toggleComplete() {
         set.isCompleted.toggle()
         if set.isCompleted {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             onCompleted()
         }
         syncDisplayValues()

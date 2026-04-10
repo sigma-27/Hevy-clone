@@ -6,6 +6,7 @@ struct ActiveWorkoutView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Query private var settings: [UserSettings]
     @State private var showingExercisePicker = false
     @State private var showingFinishConfirm = false
     @State private var showingComplete = false
@@ -13,6 +14,9 @@ struct ActiveWorkoutView: View {
     @State private var isReordering = false
     @State private var elapsedSeconds = 0
     @State private var timer: Timer?
+
+    private var restSeconds: TimeInterval { Double(settings.first?.restTimerDefaultSeconds ?? 90) }
+    private var autoStartRest: Bool { settings.first?.autoStartRestTimer ?? true }
 
     var body: some View {
         NavigationStack {
@@ -36,7 +40,6 @@ struct ActiveWorkoutView: View {
                     if isReordering {
                         reorderList
                     } else {
-                        // Exercise cards
                         LazyVStack(spacing: 16) {
                             ForEach(sortedExercises) { we in
                                 ExerciseInWorkoutView(workoutExercise: we)
@@ -45,7 +48,6 @@ struct ActiveWorkoutView: View {
                         .padding()
                     }
 
-                    // Add exercise button (hidden while reordering)
                     if !isReordering {
                         Button { showingExercisePicker = true } label: {
                             Label("Add Exercise", systemImage: "plus")
@@ -78,7 +80,6 @@ struct ActiveWorkoutView: View {
                             }
                         }
 
-                        // Reorder button — only when there are 2+ exercises
                         if sortedExercises.count > 1 {
                             Button {
                                 withAnimation { isReordering.toggle() }
@@ -119,14 +120,22 @@ struct ActiveWorkoutView: View {
         .onAppear {
             startTimer()
             RestTimerService.requestPermission()
+            // Start Live Activity and register the complete-set closure
+            appState.startLiveActivity(workout: workout)
+            appState.completeNextSetAction = { [self] in completeNextSet() }
         }
-        .onDisappear { timer?.invalidate() }
+        .onDisappear {
+            timer?.invalidate()
+            // Keep closure alive — workout sheet may re-appear
+        }
         .onChange(of: scenePhase) { _, phase in
-            // Re-sync elapsed time whenever the app returns to the foreground
-            // (handles lock screen, app switching, background fetch wakeups)
             if phase == .active {
                 elapsedSeconds = Int(Date().timeIntervalSince(workout.startTime))
             }
+        }
+        // Update Live Activity whenever set completion state changes
+        .onChange(of: workout.completedSetsCount) { _, _ in
+            appState.updateLiveActivity(workout: workout)
         }
     }
 
@@ -143,8 +152,7 @@ struct ActiveWorkoutView: View {
             Section {
                 ForEach(sortedExercises) { we in
                     HStack(spacing: 12) {
-                        Image(systemName: "line.3.horizontal")
-                            .foregroundStyle(.tertiary)
+                        Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(we.exercise?.name ?? "Exercise")
                                 .font(.subheadline).fontWeight(.semibold)
@@ -166,8 +174,7 @@ struct ActiveWorkoutView: View {
                     reorderExercises(from: indices, to: destination)
                 }
             } header: {
-                Text("Drag to reorder")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("Drag to reorder").font(.caption).foregroundStyle(.secondary)
             }
         }
         .listStyle(.insetGrouped)
@@ -199,9 +206,7 @@ struct ActiveWorkoutView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "note.text").font(.caption)
-                    Text(workout.notes)
-                        .font(.caption)
-                        .lineLimit(1)
+                    Text(workout.notes).font(.caption).lineLimit(1)
                     Spacer()
                     Image(systemName: "chevron.down").font(.caption2)
                 }
@@ -242,16 +247,32 @@ struct ActiveWorkoutView: View {
     private func reorderExercises(from indices: IndexSet, to destination: Int) {
         var exercises = sortedExercises
         exercises.move(fromOffsets: indices, toOffset: destination)
-        for (i, we) in exercises.enumerated() {
-            we.exerciseOrder = i
+        for (i, we) in exercises.enumerated() { we.exerciseOrder = i }
+    }
+
+    // MARK: - Complete next set (called from Live Activity deep link)
+
+    func completeNextSet() {
+        for we in sortedExercises {
+            for set in we.sortedSets where !set.isCompleted {
+                set.isCompleted = true
+                try? modelContext.save()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if autoStartRest { appState.startRestTimer(seconds: restSeconds) }
+                appState.updateLiveActivity(workout: workout)
+                return
+            }
         }
     }
+
+    // MARK: - Finish / cancel
 
     private func finishWorkout() {
         workout.endTime = Date()
         workout.isInProgress = false
         applyAutoProgression()
         try? modelContext.save()
+        appState.endLiveActivity()
         showingComplete = true
     }
 
@@ -280,6 +301,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func cancelWorkout() {
+        appState.endLiveActivity()
         modelContext.delete(workout)
         try? modelContext.save()
         appState.endWorkout()

@@ -14,6 +14,7 @@ targets:
       - path: IronLog
         excludes:
           - "**/*.md"
+      - path: Shared
     info:
       path: IronLog/Info.plist
       properties:
@@ -24,6 +25,12 @@ targets:
         NSPhotoLibraryUsageDescription: "IronLog uses your photo library for progress photos."
         NSPhotoLibraryAddUsageDescription: "IronLog saves progress photos to your photo library."
         UIRequiresFullScreen: true
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.personal.IronLog
+            CFBundleURLSchemes:
+              - ironlog
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.personal.IronLog
@@ -35,6 +42,31 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: "YES"
+    dependencies:
+      - target: IronLogWidgetExtension
+        embed: true
+
+  IronLogWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: IronLogWidgetExtension
+      - path: Shared
+    info:
+      path: IronLogWidgetExtension/Info.plist
+      properties:
+        CFBundleDisplayName: IronLog Widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.personal.IronLog.widget
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
 
   IronLogTests:
     type: bundle.unit-test

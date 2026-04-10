@@ -44,7 +44,40 @@ struct IronLogApp: App {
                     await ExerciseSeeder.seedIfNeeded(modelContainer: modelContainer)
                     await UserSettingsManager.ensureExists(modelContainer: modelContainer)
                 }
+                .onOpenURL { url in
+                    handleDeepLink(url)
+                }
         }
         .modelContainer(modelContainer)
+    }
+
+    // MARK: - Deep link handler
+    //
+    // URL scheme:  ironlog://<action>
+    //   ironlog://workout        → bring active workout to front
+    //   ironlog://complete-set   → complete next incomplete set, start rest timer
+    //   ironlog://skip-rest      → stop rest timer immediately
+    //
+    // These URLs are embedded in the Live Activity / Dynamic Island buttons.
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "ironlog" else { return }
+
+        // Always surface the active workout sheet first
+        if appState.activeWorkout != nil {
+            appState.showingActiveWorkout = true
+        }
+
+        switch url.host {
+        case "complete-set":
+            // Delegate to ActiveWorkoutView via the stored closure
+            appState.completeNextSetAction?()
+
+        case "skip-rest":
+            appState.stopRestTimer()
+
+        default:
+            break  // "workout" — just surfacing the sheet is enough
+        }
     }
 }
