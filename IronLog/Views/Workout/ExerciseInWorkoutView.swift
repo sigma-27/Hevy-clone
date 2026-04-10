@@ -14,6 +14,7 @@ struct ExerciseInWorkoutView: View {
     private var restSeconds: TimeInterval { Double(settings.first?.restTimerDefaultSeconds ?? 90) }
     private var autoStart: Bool { settings.first?.autoStartRestTimer ?? true }
     private var showRPE: Bool { settings.first?.showRPE ?? true }
+    private var isCardio: Bool { workoutExercise.exercise?.category == "Cardio" }
 
     /// Previous completed sets for this exercise (from most recent completed workout)
     private var previousSets: [WorkoutSet] {
@@ -99,13 +100,18 @@ struct ExerciseInWorkoutView: View {
                     .padding(.horizontal).padding(.top, 4)
             }
 
-            // Column headers
+            // Column headers — dynamic based on exercise type
             HStack(spacing: 0) {
                 Text("SET").frame(width: 44)
                 Text("PREV").frame(maxWidth: .infinity)
-                Text(useKg ? "KG" : "LBS").frame(width: 70)
-                Text("REPS").frame(width: 56)
-                if showRPE { Text("RPE").frame(width: 36) }
+                if isCardio {
+                    Text("MIN:SS").frame(width: 70)
+                    Text(useKg ? "KM" : "MI").frame(width: 56)
+                } else {
+                    Text(useKg ? "KG" : "LBS").frame(width: 70)
+                    Text("REPS").frame(width: 56)
+                    if showRPE { Text("RPE").frame(width: 36) }
+                }
                 Image(systemName: "checkmark").frame(width: 44)
             }
             .font(.caption2).fontWeight(.semibold).foregroundStyle(.secondary)
@@ -120,10 +126,15 @@ struct ExerciseInWorkoutView: View {
                     useKg: useKg,
                     previousWeightKg: prevSet?.weightKg,
                     previousReps: prevSet?.reps,
-                    showRPE: showRPE
-                ) {
-                    if autoStart { appState.startRestTimer(seconds: restSeconds) }
-                }
+                    previousDurationSeconds: prevSet?.durationSeconds,
+                    previousDistanceMeters: prevSet?.distanceMeters,
+                    showRPE: showRPE,
+                    isCardio: isCardio,
+                    onCompleted: {
+                        if autoStart { appState.startRestTimer(seconds: restSeconds) }
+                    },
+                    onDelete: { deleteSet(set) }
+                )
             }
 
             // Add set button
@@ -219,10 +230,27 @@ struct ExerciseInWorkoutView: View {
     private func addSet() {
         let nextNum = (workoutExercise.sets.map(\.setNumber).max() ?? 0) + 1
         let prev = workoutExercise.sortedSets.last
-        let newSet = WorkoutSet(setNumber: nextNum, weightKg: prev?.weightKg, reps: prev?.reps)
+        let newSet: WorkoutSet
+        if isCardio {
+            newSet = WorkoutSet(
+                setNumber: nextNum,
+                durationSeconds: prev?.durationSeconds,
+                distanceMeters: prev?.distanceMeters
+            )
+        } else {
+            newSet = WorkoutSet(setNumber: nextNum, weightKg: prev?.weightKg, reps: prev?.reps)
+        }
         newSet.workoutExercise = workoutExercise
         modelContext.insert(newSet)
         workoutExercise.sets.append(newSet)
+    }
+
+    private func deleteSet(_ set: WorkoutSet) {
+        workoutExercise.sets.removeAll { $0.id == set.id }
+        modelContext.delete(set)
+        for (i, s) in workoutExercise.sortedSets.enumerated() {
+            s.setNumber = i + 1
+        }
     }
 
     private func deleteExercise() {
