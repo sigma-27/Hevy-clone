@@ -12,6 +12,7 @@ struct ActiveWorkoutView: View {
     @State private var showingComplete = false
     @State private var showingNotes = false
     @State private var isReordering = false
+    @State private var isEditingTitle = false
     @State private var elapsedSeconds = 0
     @State private var timer: Timer?
 
@@ -61,8 +62,29 @@ struct ActiveWorkoutView: View {
                     }
                 }
             }
-            .navigationTitle(workout.title)
+            .navigationTitle(isEditingTitle ? "" : workout.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    if isEditingTitle {
+                        TextField("Workout title", text: $workout.title)
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .submitLabel(.done)
+                            .onSubmit { isEditingTitle = false }
+                            .frame(minWidth: 180)
+                    } else {
+                        Button {
+                            isEditingTitle = true
+                        } label: {
+                            Text(workout.title)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text(elapsedString)

@@ -22,6 +22,14 @@ struct WorkoutDetailView: View {
                 .padding(.vertical, 4)
             }
 
+            // Title (editable in edit mode)
+            if isEditing {
+                Section("Title") {
+                    TextField("Workout title", text: $workout.title)
+                        .font(.subheadline)
+                }
+            }
+
             // Notes (editable in edit mode)
             if isEditing || !workout.notes.isEmpty {
                 Section("Notes") {
