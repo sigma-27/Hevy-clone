@@ -5,8 +5,11 @@ struct HistoryView: View {
     @Query(sort: \Workout.startTime, order: .reverse) private var workouts: [Workout]
     @Query private var settings: [UserSettings]
     @Environment(\.modelContext) private var modelContext
-    private var useKg: Bool { settings.first?.useKilograms ?? true }
+    @State private var showingCalendar = false
+    @State private var selectedDayWorkouts: [Workout] = []
+    @State private var showingDaySheet = false
 
+    private var useKg: Bool { settings.first?.useKilograms ?? true }
     private var completedWorkouts: [Workout] { workouts.filter { !$0.isInProgress } }
 
     private var groupedByMonth: [(String, [Workout])] {
@@ -25,6 +28,17 @@ struct HistoryView: View {
                 if completedWorkouts.isEmpty {
                     EmptyStateView(title: "No Workouts Yet", message: "Your completed workouts will appear here.", systemImage: "clock.arrow.circlepath")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if showingCalendar {
+                    ScrollView {
+                        CalendarHeatmapView(workouts: completedWorkouts) { date in
+                            let cal = Calendar.current
+                            selectedDayWorkouts = completedWorkouts.filter {
+                                cal.isDate($0.startTime, inSameDayAs: date)
+                            }
+                            if !selectedDayWorkouts.isEmpty { showingDaySheet = true }
+                        }
+                        .padding(.top)
+                    }
                 } else {
                     List {
                         ForEach(groupedByMonth, id: \.0) { month, monthWorkouts in
@@ -43,6 +57,19 @@ struct HistoryView: View {
                 }
             }
             .navigationTitle("History")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation { showingCalendar.toggle() }
+                    } label: {
+                        Image(systemName: showingCalendar ? "list.bullet" : "calendar")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingDaySheet) {
+                DayWorkoutsSheet(workouts: selectedDayWorkouts, useKg: useKg)
+                    .presentationDetents([.medium, .large])
+            }
         }
     }
 
@@ -76,5 +103,40 @@ struct HistoryView: View {
             modelContext.delete(list[index])
         }
         try? modelContext.save()
+    }
+}
+
+// MARK: - Day detail sheet (from calendar tap)
+
+private struct DayWorkoutsSheet: View {
+    var workouts: [Workout]
+    var useKg: Bool
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(workouts) { workout in
+                    NavigationLink(destination: WorkoutDetailView(workout: workout)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(workout.title).font(.subheadline).fontWeight(.semibold)
+                            HStack(spacing: 10) {
+                                Text(workout.startTime.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption).foregroundStyle(.secondary)
+                                let vol = useKg ? workout.totalVolumeKg : workout.totalVolumeKg * 2.20462
+                                Text(String(format: "%.0f %@", vol, useKg ? "kg" : "lbs"))
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Text("\(workout.completedSetsCount) sets")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .navigationTitle(workouts.first.map {
+                $0.startTime.formatted(date: .complete, time: .omitted)
+            } ?? "Workouts")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }

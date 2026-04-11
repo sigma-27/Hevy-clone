@@ -3,6 +3,7 @@ import SwiftData
 
 struct CalendarHeatmapView: View {
     var workouts: [Workout]
+    var onSelectDate: ((Date) -> Void)? = nil
     @State private var selectedMonth = Calendar.current.startOfMonth(for: Date())
 
     private let calendar = Calendar.current
@@ -65,14 +66,20 @@ struct CalendarHeatmapView: View {
         let volume = volumeByDate[calendar.startOfDay(for: date)] ?? 0
         let isToday = calendar.isDateInToday(date)
         let intensity = min(1.0, volume / 5000)
-        return VStack(spacing: 2) {
+        let hasWorkout = volume > 0
+        return Button {
+            if hasWorkout { onSelectDate?(date) }
+        } label: {
             Text("\(calendar.component(.day, from: date))")
                 .font(.caption2)
                 .frame(maxWidth: .infinity).frame(height: 36)
-                .background(volume > 0 ? Color.accentColor.opacity(0.2 + intensity * 0.6) : Color.clear)
+                .background(hasWorkout ? Color.accentColor.opacity(0.2 + intensity * 0.6) : Color.clear)
                 .overlay(isToday ? RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor, lineWidth: 1.5) : nil)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(hasWorkout ? .primary : .secondary)
         }
+        .buttonStyle(.plain)
+        .disabled(!hasWorkout)
     }
 
     private func changeMonth(_ delta: Int) {
