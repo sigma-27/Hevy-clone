@@ -8,6 +8,7 @@ struct ExercisePickerView: View {
     @State private var searchText = ""
     @State private var selectedMuscle: String? = nil
     @State private var selectedEquipment: String? = nil
+    @State private var showingCreate = false
 
     private var filtered: [Exercise] {
         exercises.filter { ex in
@@ -49,6 +50,17 @@ struct ExercisePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingCreate = true } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreate) {
+                CreateExerciseView { exercise in
+                    onSelect(exercise)
+                    dismiss()
                 }
             }
         }

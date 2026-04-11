@@ -3,6 +3,8 @@ import SwiftData
 
 struct HistoryView: View {
     @Query(sort: \Workout.startTime, order: .reverse) private var workouts: [Workout]
+    @Query private var settings: [UserSettings]
+    private var useKg: Bool { settings.first?.useKilograms ?? true }
 
     private var completedWorkouts: [Workout] { workouts.filter { !$0.isInProgress } }
 
@@ -52,7 +54,8 @@ struct HistoryView: View {
             HStack(spacing: 12) {
                 Label("\(workout.exercises.count) exercises", systemImage: "list.bullet")
                 Label("\(workout.completedSetsCount) sets", systemImage: "number")
-                Label(String(format: "%.0f kg", workout.totalVolumeKg), systemImage: "scalemass")
+                let vol = useKg ? workout.totalVolumeKg : workout.totalVolumeKg * 2.20462
+                Label(String(format: "%.0f %@", vol, useKg ? "kg" : "lbs"), systemImage: "scalemass")
             }
             .font(.caption2).foregroundStyle(.tertiary)
         }

@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct CreateExerciseView: View {
+    var onCreated: ((Exercise) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
@@ -82,6 +83,7 @@ struct CreateExerciseView: View {
         )
         modelContext.insert(exercise)
         try? modelContext.save()
+        onCreated?(exercise)
         dismiss()
     }
 }

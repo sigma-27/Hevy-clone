@@ -6,7 +6,7 @@ struct RPEPicker: View {
     var body: some View {
         Menu {
             Button("Clear RPE") { rpe = nil }
-            ForEach([6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0], id: \.self) { value in
+            ForEach(stride(from: 10.0, through: 1.0, by: -0.5).map { $0 }, id: \.self) { value in
                 Button("RPE \(value.formatted(.number.precision(.fractionLength(value.truncatingRemainder(dividingBy: 1) == 0 ? 0 : 1))))") {
                     rpe = value
                 }

@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct WorkoutDetailView: View {
-    var workout: Workout
+    @Bindable var workout: Workout
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query private var settings: [UserSettings]
@@ -22,15 +22,28 @@ struct WorkoutDetailView: View {
                 .padding(.vertical, 4)
             }
 
-            // Notes
-            if !workout.notes.isEmpty {
-                Section("Notes") { Text(workout.notes).font(.subheadline) }
+            // Notes (editable in edit mode)
+            if isEditing || !workout.notes.isEmpty {
+                Section("Notes") {
+                    if isEditing {
+                        TextField("Workout notes", text: $workout.notes, axis: .vertical)
+                            .font(.subheadline).lineLimit(2...6)
+                    } else {
+                        Text(workout.notes).font(.subheadline)
+                    }
+                }
             }
 
             // Exercises
             ForEach(workout.exercises.sorted { $0.exerciseOrder < $1.exerciseOrder }) { we in
                 let isCardio = we.exercise?.category == "Cardio"
-                Section(we.exercise?.name ?? "Exercise") {
+                Section {
+                    // Exercise notes (read-only)
+                    if !we.notes.isEmpty {
+                        Text(we.notes)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .listRowBackground(Color.clear)
+                    }
                     ForEach(we.sortedSets) { set in
                         CompletedSetRow(
                             set: set,
@@ -39,6 +52,8 @@ struct WorkoutDetailView: View {
                             isEditing: isEditing
                         )
                     }
+                } header: {
+                    Text(we.exercise?.name ?? "Exercise")
                 }
             }
         }
@@ -123,8 +138,7 @@ private struct CompletedSetRow: View {
 
     var body: some View {
         HStack {
-            Text("Set \(set.setNumber)")
-                .font(.subheadline).foregroundStyle(.secondary)
+            setLabel
                 .frame(width: 52, alignment: .leading)
             Spacer()
             if isEditing {
@@ -135,6 +149,26 @@ private struct CompletedSetRow: View {
         }
         .onAppear { syncStrings() }
         .onChange(of: isEditing) { _, _ in syncStrings() }
+    }
+
+    @ViewBuilder
+    private var setLabel: some View {
+        switch set.setType {
+        case "warmup":
+            Text("W").font(.caption2).bold().foregroundStyle(.orange)
+                .frame(width: 22, height: 22)
+                .background(Color.orange.opacity(0.15)).clipShape(Circle())
+        case "dropset":
+            Text("D").font(.caption2).bold().foregroundStyle(.purple)
+                .frame(width: 22, height: 22)
+                .background(Color.purple.opacity(0.15)).clipShape(Circle())
+        case "failure":
+            Text("F").font(.caption2).bold().foregroundStyle(.red)
+                .frame(width: 22, height: 22)
+                .background(Color.red.opacity(0.15)).clipShape(Circle())
+        default:
+            Text("Set \(set.setNumber)").font(.subheadline).foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder
