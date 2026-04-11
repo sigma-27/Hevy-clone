@@ -4,6 +4,7 @@ import SwiftData
 struct HistoryView: View {
     @Query(sort: \Workout.startTime, order: .reverse) private var workouts: [Workout]
     @Query private var settings: [UserSettings]
+    @Environment(\.modelContext) private var modelContext
     private var useKg: Bool { settings.first?.useKilograms ?? true }
 
     private var completedWorkouts: [Workout] { workouts.filter { !$0.isInProgress } }
@@ -32,6 +33,9 @@ struct HistoryView: View {
                                     NavigationLink(destination: WorkoutDetailView(workout: workout)) {
                                         historyRow(workout)
                                     }
+                                }
+                                .onDelete { offsets in
+                                    deleteWorkouts(from: monthWorkouts, at: offsets)
                                 }
                             }
                         }
@@ -65,5 +69,12 @@ struct HistoryView: View {
     private func durationLabel(_ workout: Workout) -> String {
         let m = Int(workout.duration / 60)
         return m < 60 ? "\(m)m" : "\(m/60)h \(m%60)m"
+    }
+
+    private func deleteWorkouts(from list: [Workout], at offsets: IndexSet) {
+        for index in offsets {
+            modelContext.delete(list[index])
+        }
+        try? modelContext.save()
     }
 }
