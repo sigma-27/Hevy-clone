@@ -141,6 +141,7 @@ struct DashboardView: View {
                 .first
             for j in 0..<re.targetSets {
                 let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg, reps: targetReps)
+                set.workoutExercise = we
                 we.sets.append(set)
                 modelContext.insert(set)
             }

@@ -12,8 +12,8 @@ final class RoutineExercise {
     var notes: String
     var autoProgressEnabled: Bool
     var autoProgressWeightKg: Double
-    var routine: Routine?
-    var exercise: Exercise?
+    @Relationship var routine: Routine?
+    @Relationship var exercise: Exercise?
 
     init(
         id: UUID = UUID(), exerciseOrder: Int, targetSets: Int = 3,

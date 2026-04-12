@@ -266,6 +266,7 @@ struct ActiveWorkoutView: View {
         we.exercise = exercise
         we.workout = workout
         let set = WorkoutSet(setNumber: 1)
+        set.workoutExercise = we
         we.sets.append(set)
         modelContext.insert(we)
         modelContext.insert(set)

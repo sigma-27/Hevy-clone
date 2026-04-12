@@ -7,7 +7,9 @@ struct PRListView: View {
     @Query private var settings: [UserSettings]
 
     private var useKg: Bool { settings.first?.useKilograms ?? true }
-    private let formula: OneRepMaxCalculator.Formula = .epley
+    private var formula: OneRepMaxCalculator.Formula {
+        OneRepMaxCalculator.Formula(rawValue: settings.first?.oneRMFormula ?? "Epley") ?? .epley
+    }
 
     struct ExercisePR: Identifiable {
         let id: UUID
