@@ -54,6 +54,8 @@ struct ExportService {
         var targetSets: Int
         var targetReps: String
         var targetWeightKg: Double?
+        var supersetGroup: Int?
+        var notes: String?          // optional for backwards-compatible import
         var autoProgressEnabled: Bool
         var autoProgressWeightKg: Double
     }
@@ -94,7 +96,8 @@ struct ExportService {
             let exDTOs = r.sortedExercises.map { re in
                 RoutineExerciseDTO(exerciseOrder: re.exerciseOrder, exerciseName: re.exercise?.name ?? "",
                                    targetSets: re.targetSets, targetReps: re.targetReps,
-                                   targetWeightKg: re.targetWeightKg, autoProgressEnabled: re.autoProgressEnabled,
+                                   targetWeightKg: re.targetWeightKg, supersetGroup: re.supersetGroup,
+                                   notes: re.notes, autoProgressEnabled: re.autoProgressEnabled,
                                    autoProgressWeightKg: re.autoProgressWeightKg)
             }
             return RoutineDTO(id: r.id.uuidString, name: r.name, notes: r.notes,
@@ -187,6 +190,8 @@ struct ExportService {
                     targetSets: reDTO.targetSets,
                     targetReps: reDTO.targetReps,
                     targetWeightKg: reDTO.targetWeightKg,
+                    supersetGroup: reDTO.supersetGroup,
+                    notes: reDTO.notes ?? "",
                     autoProgressEnabled: reDTO.autoProgressEnabled,
                     autoProgressWeightKg: reDTO.autoProgressWeightKg
                 )
