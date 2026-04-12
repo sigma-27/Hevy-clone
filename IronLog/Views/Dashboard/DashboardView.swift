@@ -134,8 +134,13 @@ struct DashboardView: View {
             let we = WorkoutExercise(exerciseOrder: i, supersetGroup: re.supersetGroup)
             we.exercise = re.exercise
             we.workout = workout
+            // Parse lower bound of target reps range (e.g. "8-12" → 8, "10" → 10)
+            let targetReps = re.targetReps
+                .split(separator: "-")
+                .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+                .first
             for j in 0..<re.targetSets {
-                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg)
+                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg, reps: targetReps)
                 we.sets.append(set)
                 modelContext.insert(set)
             }

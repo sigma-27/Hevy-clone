@@ -56,6 +56,27 @@ struct SettingsView: View {
                 }
             }
 
+            Section {
+                HStack {
+                    Text("Bar Weight")
+                    Spacer()
+                    if settings.useKilograms {
+                        Stepper("\(settings.barWeightKg.formatted()) kg",
+                                value: Binding(get: { settings.barWeightKg }, set: { settings.barWeightKg = $0 }),
+                                in: 5...30, step: 2.5)
+                    } else {
+                        Stepper("\(settings.barWeightLbs.formatted()) lbs",
+                                value: Binding(get: { settings.barWeightLbs }, set: { settings.barWeightLbs = $0 }),
+                                in: 10...65, step: 5)
+                    }
+                }
+                availablePlatesRow
+            } header: {
+                Text("Plate Calculator")
+            } footer: {
+                Text("Tap a plate to toggle it on or off.")
+            }
+
             Section("About") {
                 HStack {
                     AppIconView(size: 60)
@@ -72,5 +93,42 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .onChange(of: settingsArr) { _, _ in try? modelContext.save() }
+    }
+
+    private var availablePlatesRow: some View {
+        let allKg: [Double] = [1.25, 2.5, 5, 10, 15, 20, 25]
+        let allLbs: [Double] = [2.5, 5, 10, 25, 35, 45]
+        let all = settings.useKilograms ? allKg : allLbs
+        let unit = settings.useKilograms ? "kg" : "lbs"
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Available Plates (\(unit))")
+                .font(.subheadline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(all, id: \.self) { plate in
+                        let isOn = settings.useKilograms
+                            ? settings.availablePlatesKg.contains(plate)
+                            : settings.availablePlatesLbs.contains(plate)
+                        Button {
+                            if settings.useKilograms {
+                                if isOn { settings.availablePlatesKg.removeAll { $0 == plate } }
+                                else { settings.availablePlatesKg.append(plate); settings.availablePlatesKg.sort() }
+                            } else {
+                                if isOn { settings.availablePlatesLbs.removeAll { $0 == plate } }
+                                else { settings.availablePlatesLbs.append(plate); settings.availablePlatesLbs.sort() }
+                            }
+                        } label: {
+                            Text(plate < 10 ? plate.formatted() : "\(Int(plate))")
+                                .font(.caption).fontWeight(.semibold)
+                                .frame(width: 44, height: 44)
+                                .background(isOn ? Color.accentColor : Color(.tertiarySystemBackground))
+                                .foregroundStyle(isOn ? .white : .secondary)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
     }
 }

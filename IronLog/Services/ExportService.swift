@@ -36,6 +36,8 @@ struct ExportService {
         var rpe: Double?
         var setType: String
         var isCompleted: Bool
+        var durationSeconds: Int?
+        var distanceMeters: Double?
     }
 
     struct RoutineDTO: Codable {
@@ -77,7 +79,8 @@ struct ExportService {
             let exDTOs = w.exercises.sorted { $0.exerciseOrder < $1.exerciseOrder }.map { we -> WorkoutExerciseDTO in
                 let setDTOs = we.sortedSets.map { s in
                     WorkoutSetDTO(setNumber: s.setNumber, weightKg: s.weightKg, reps: s.reps,
-                                  rpe: s.rpe, setType: s.setType, isCompleted: s.isCompleted)
+                                  rpe: s.rpe, setType: s.setType, isCompleted: s.isCompleted,
+                                  durationSeconds: s.durationSeconds, distanceMeters: s.distanceMeters)
                 }
                 return WorkoutExerciseDTO(id: we.id.uuidString, exerciseOrder: we.exerciseOrder,
                                           exerciseName: we.exercise?.name ?? "", notes: we.notes,
@@ -155,6 +158,8 @@ struct ExportService {
                         weightKg: sDTO.weightKg,
                         reps: sDTO.reps,
                         rpe: sDTO.rpe,
+                        durationSeconds: sDTO.durationSeconds,
+                        distanceMeters: sDTO.distanceMeters,
                         isCompleted: sDTO.isCompleted,
                         setType: sDTO.setType
                     )

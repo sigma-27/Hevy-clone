@@ -6,7 +6,7 @@ struct RoutineDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @State private var showingExercisePicker = false
-    @State private var isEditing = false
+    @State private var editingExercise: RoutineExercise?
 
     private let dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
 
@@ -47,7 +47,10 @@ struct RoutineDetailView: View {
             // Exercises
             Section {
                 ForEach(routine.sortedExercises) { re in
-                    routineExerciseRow(re)
+                    Button { editingExercise = re } label: {
+                        routineExerciseRow(re)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .onMove { from, to in
                     var sorted = routine.sortedExercises
@@ -82,22 +85,34 @@ struct RoutineDetailView: View {
                 showingExercisePicker = false
             }
         }
+        .sheet(item: $editingExercise) { re in
+            RoutineExerciseEditSheet(routineExercise: re)
+        }
     }
 
     private func routineExerciseRow(_ re: RoutineExercise) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(re.exercise?.name ?? "Exercise")
-                .font(.subheadline).fontWeight(.semibold)
-            HStack(spacing: 16) {
-                Label("\(re.targetSets) sets", systemImage: "number.circle")
-                    .font(.caption).foregroundStyle(.secondary)
-                Label(re.targetReps + " reps", systemImage: "arrow.up.arrow.down")
-                    .font(.caption).foregroundStyle(.secondary)
-                if re.autoProgressEnabled {
-                    Label("+\(re.autoProgressWeightKg.formatted())kg", systemImage: "arrow.up.right")
-                        .font(.caption).foregroundStyle(.green)
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(re.exercise?.name ?? "Exercise")
+                    .font(.subheadline).fontWeight(.semibold)
+                HStack(spacing: 16) {
+                    Label("\(re.targetSets) sets", systemImage: "number.circle")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Label(re.targetReps + " reps", systemImage: "arrow.up.arrow.down")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let w = re.targetWeightKg, w > 0 {
+                        Label(String(format: "%.1f kg", w), systemImage: "scalemass")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if re.autoProgressEnabled {
+                        Label("+\(re.autoProgressWeightKg.formatted())kg", systemImage: "arrow.up.right")
+                            .font(.caption).foregroundStyle(.green)
+                    }
                 }
             }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
     }
@@ -108,6 +123,8 @@ struct RoutineDetailView: View {
         re.routine = routine
         modelContext.insert(re)
         routine.exercises.append(re)
+        // Open editor immediately after adding
+        editingExercise = re
     }
 
     private func startWorkout() {
@@ -116,8 +133,12 @@ struct RoutineDetailView: View {
             let we = WorkoutExercise(exerciseOrder: i, supersetGroup: re.supersetGroup)
             we.exercise = re.exercise
             we.workout = workout
+            let targetReps = re.targetReps
+                .split(separator: "-")
+                .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+                .first
             for j in 0..<re.targetSets {
-                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg)
+                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg, reps: targetReps)
                 we.sets.append(set)
                 modelContext.insert(set)
             }
@@ -127,5 +148,85 @@ struct RoutineDetailView: View {
         routine.lastUsed = Date()
         modelContext.insert(workout)
         appState.startWorkout(workout)
+    }
+}
+
+// MARK: - Per-exercise edit sheet
+
+struct RoutineExerciseEditSheet: View {
+    @Bindable var routineExercise: RoutineExercise
+    @Query private var settings: [UserSettings]
+    @Environment(\.dismiss) private var dismiss
+    @State private var weightString = ""
+
+    private var useKg: Bool { settings.first?.useKilograms ?? true }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Sets & Reps") {
+                    Stepper("Sets: \(routineExercise.targetSets)",
+                            value: $routineExercise.targetSets, in: 1...20)
+                    HStack {
+                        Text("Target Reps")
+                        Spacer()
+                        TextField("e.g. 8-12", text: $routineExercise.targetReps)
+                            .keyboardType(.numbersAndPunctuation)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                    }
+                }
+
+                Section("Target Weight (\(useKg ? "kg" : "lbs"))") {
+                    TextField("Optional", text: $weightString)
+                        .keyboardType(.decimalPad)
+                        .onChange(of: weightString) { _, v in
+                            if let w = Double(v.replacingOccurrences(of: ",", with: ".")) {
+                                routineExercise.targetWeightKg = useKg ? w : w * 0.453592
+                            } else if v.isEmpty {
+                                routineExercise.targetWeightKg = nil
+                            }
+                        }
+                }
+
+                Section {
+                    Toggle("Auto-Progression", isOn: $routineExercise.autoProgressEnabled)
+                    if routineExercise.autoProgressEnabled {
+                        Stepper(
+                            "Add \(routineExercise.autoProgressWeightKg.formatted()) \(useKg ? "kg" : "lbs") per session",
+                            value: $routineExercise.autoProgressWeightKg,
+                            in: 0.5...10, step: 0.5
+                        )
+                    }
+                } header: {
+                    Text("Progression")
+                } footer: {
+                    if routineExercise.autoProgressEnabled {
+                        Text("Weight increases automatically when all sets hit the top of your rep range.")
+                    }
+                }
+
+                Section("Exercise Notes") {
+                    TextField("Notes for this exercise", text: $routineExercise.notes, axis: .vertical)
+                        .lineLimit(2...4)
+                }
+            }
+            .navigationTitle(routineExercise.exercise?.name ?? "Exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.fontWeight(.semibold)
+                }
+            }
+            .onAppear { syncWeightString() }
+            .onChange(of: useKg) { _, _ in syncWeightString() }
+        }
+    }
+
+    private func syncWeightString() {
+        guard let w = routineExercise.targetWeightKg else { weightString = ""; return }
+        let display = useKg ? w : w * 2.20462
+        weightString = display.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(display))" : String(format: "%.1f", display)
     }
 }
