@@ -4,6 +4,9 @@ import SwiftData
 struct ExerciseDetailView: View {
     var exercise: Exercise
     @Query private var allWorkouts: [Workout]
+    @Query private var settings: [UserSettings]
+
+    private var useKg: Bool { settings.first?.useKilograms ?? true }
 
     private var history: [WorkoutSet] {
         allWorkouts
@@ -62,10 +65,15 @@ struct ExerciseDetailView: View {
                 Section("Personal Best") {
                     HStack {
                         Image(systemName: "trophy.fill").foregroundStyle(.yellow)
-                        Text("\(Int(best.weightKg ?? 0)) kg × \(best.reps ?? 0) reps")
+                        let w = best.weightKg ?? 0
+                        let displayW = useKg ? w : w * 2.20462
+                        let unit = useKg ? "kg" : "lbs"
+                        Text("\(displayW.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(displayW))" : String(format: "%.1f", displayW)) \(unit) × \(best.reps ?? 0) reps")
                             .font(.headline)
                         Spacer()
-                        Text(OneRepMaxCalculator.calculate(weightKg: best.weightKg ?? 0, reps: best.reps ?? 1).formatted(.number.precision(.fractionLength(1))) + " kg est. 1RM")
+                        let orm = OneRepMaxCalculator.calculate(weightKg: w, reps: best.reps ?? 1)
+                        let displayORM = useKg ? orm : orm * 2.20462
+                        Text(String(format: "%.1f", displayORM) + " \(unit) est. 1RM")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -89,7 +97,10 @@ struct ExerciseDetailView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             if let w = set.weightKg, let r = set.reps {
-                                Text("\(Int(w)) kg × \(r)").font(.subheadline)
+                                let display = useKg ? w : w * 2.20462
+                                let wStr = display.truncatingRemainder(dividingBy: 1) == 0
+                                    ? "\(Int(display))" : String(format: "%.1f", display)
+                                Text("\(wStr) \(useKg ? "kg" : "lbs") × \(r)").font(.subheadline)
                             }
                         }
                     }
