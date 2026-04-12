@@ -100,14 +100,20 @@ struct WorkoutTabView: View {
         for (i, re) in routine.sortedExercises.enumerated() {
             let we = WorkoutExercise(exerciseOrder: i, supersetGroup: re.supersetGroup)
             we.exercise = re.exercise
+            we.workout = workout
+            let targetReps = re.targetReps
+                .split(separator: "-")
+                .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+                .first
             for j in 0..<re.targetSets {
-                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg)
+                let set = WorkoutSet(setNumber: j + 1, weightKg: re.targetWeightKg, reps: targetReps)
                 we.sets.append(set)
                 modelContext.insert(set)
             }
             workout.exercises.append(we)
             modelContext.insert(we)
         }
+        routine.lastUsed = Date()
         modelContext.insert(workout)
         appState.startWorkout(workout)
     }
