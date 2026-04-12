@@ -75,8 +75,11 @@ struct BackupRestoreView: View {
         Task {
             do {
                 let data = try await ExportService.exportJSON(modelContainer: modelContainer)
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+                let filename = "IronLog_backup_\(formatter.string(from: Date())).json"
                 let url = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("IronLog_backup_\(Date().formatted(.iso8601)).json")
+                    .appendingPathComponent(filename)
                 try data.write(to: url)
                 await MainActor.run {
                     exportURL = url
@@ -96,6 +99,8 @@ struct BackupRestoreView: View {
     private func importData(from url: URL) {
         Task {
             do {
+                let accessing = url.startAccessingSecurityScopedResource()
+                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
                 let data = try Data(contentsOf: url)
                 try await ExportService.importJSON(data, into: modelContainer)
                 await MainActor.run {

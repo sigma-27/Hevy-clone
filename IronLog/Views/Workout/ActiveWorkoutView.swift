@@ -13,6 +13,7 @@ struct ActiveWorkoutView: View {
     @State private var showingNotes = false
     @State private var isReordering = false
     @State private var isEditingTitle = false
+    @FocusState private var titleFocused: Bool
     @State private var elapsedSeconds = 0
     @State private var timer: Timer?
 
@@ -71,11 +72,13 @@ struct ActiveWorkoutView: View {
                             .font(.headline)
                             .multilineTextAlignment(.center)
                             .submitLabel(.done)
-                            .onSubmit { isEditingTitle = false }
+                            .focused($titleFocused)
+                            .onSubmit { isEditingTitle = false; titleFocused = false }
                             .frame(minWidth: 180)
                     } else {
                         Button {
                             isEditingTitle = true
+                            titleFocused = true
                         } label: {
                             Text(workout.title)
                                 .font(.headline)
@@ -158,6 +161,9 @@ struct ActiveWorkoutView: View {
         // Update Live Activity whenever set completion state changes
         .onChange(of: workout.completedSetsCount) { _, _ in
             appState.updateLiveActivity(workout: workout)
+        }
+        .onChange(of: titleFocused) { _, focused in
+            if !focused { isEditingTitle = false }
         }
     }
 
